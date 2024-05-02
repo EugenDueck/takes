@@ -26,10 +26,13 @@ package org.takes.rq;
 import com.google.common.base.Joiner;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+
+import org.cactoos.io.InputStreamOf;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.takes.Request;
+import org.takes.misc.AvailableZeroInputStream;
 
 /**
  * Test case for {@link RqLive}.
@@ -52,6 +55,42 @@ public final class RqLiveTest {
                     "",
                     "hello"
                 ).getBytes()
+            )
+        );
+        MatcherAssert.assertThat(
+            new RqHeaders.Base(req).header("host"),
+            Matchers.hasItem("e")
+        );
+        MatcherAssert.assertThat(
+            new RqPrint(req).printBody(),
+            Matchers.endsWith("ello")
+        );
+    }
+
+    /**
+     * Regression test for #1227.
+     * Without the bug fix, this test will fail with the following exception:
+     * <br/>
+     * org.takes.HttpException: [400] A valid request must contain at least one line in the head
+     * 	at org.takes.rq.RqHeaders$Base.map(RqHeaders.java:140)
+     * 	at org.takes.rq.RqHeaders$Base.header(RqHeaders.java:95)
+     * 	at org.takes.rq.RqLiveTest.supportsInputStreamAvailable0(RqLiveTest.java:89)
+     * 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+     * 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+     */
+    @Test
+    public void supportsInputStreamAvailable0() throws IOException {
+        final Request req = new RqLive(
+            new AvailableZeroInputStream(
+                new InputStreamOf(
+                    this.joiner().join(
+                        "GET / HTTP/1.1",
+                        "Host:e",
+                        "Content-Length: 5",
+                        "",
+                        "hello"
+                    )
+                )
             )
         );
         MatcherAssert.assertThat(
