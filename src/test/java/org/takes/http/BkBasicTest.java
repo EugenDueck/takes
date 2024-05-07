@@ -26,16 +26,15 @@ package org.takes.http;
 import com.jcabi.http.request.JdkRequest;
 import com.jcabi.http.response.RestResponse;
 import com.jcabi.matchers.RegexMatchers;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.io.IOUtils;
 import org.cactoos.io.BytesOf;
 import org.cactoos.text.Joined;
 import org.hamcrest.MatcherAssert;
@@ -46,6 +45,7 @@ import org.takes.Request;
 import org.takes.facets.fork.FkRegex;
 import org.takes.facets.fork.TkFork;
 import org.takes.rq.RqHeaders;
+import org.takes.rq.RqLengthAware;
 import org.takes.rq.RqSocket;
 import org.takes.rs.ResponseOf;
 import org.takes.tk.TkText;
@@ -171,6 +171,12 @@ public final class BkBasicTest {
         );
     }
 
+    private static void consume(InputStream input) throws IOException {
+        try (OutputStream output = new ByteArrayOutputStream()) {
+            IOUtils.copy(input, output);
+        }
+    }
+
     /**
      * BkBasic can handle two requests in one connection.
      *
@@ -182,16 +188,22 @@ public final class BkBasicTest {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ServerSocket server = new ServerSocket(0)) {
             new Thread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            new BkBasic(new TkText(text)).accept(
-                                server.accept()
-                            );
-                        } catch (final IOException exception) {
-                            throw new IllegalStateException(exception);
-                        }
+                () -> {
+                    try {
+                        new BkBasic(req -> {
+                            // we need to consume the request body to resolve the deadlock between RqLive.parse() trying
+                            // to read the next byte from the socket in the line
+                            // data = RqLive.data(input, new Opt.Empty<>());
+                            // and the for loop further down in this test preventing the socket from closing on the
+                            // client side (which would lead to an EOS being read by RqLive.parse(), making the server
+                            // close the connection)
+                            consume(new RqLengthAware(req).body());
+                            return new TkText(text).act(req);
+                        }).accept(
+                            server.accept()
+                        );
+                    } catch (final IOException exception) {
+                        throw new IllegalStateException(exception);
                     }
                 }
             ).start();
