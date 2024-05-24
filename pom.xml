@@ -29,9 +29,9 @@ SOFTWARE.
     <artifactId>parent</artifactId>
     <version>0.49.1</version>
   </parent>
-  <groupId>org.takes</groupId>
+  <groupId>com.github.eugendueck</groupId>
   <artifactId>takes</artifactId>
-  <version>1.19</version>
+  <version>1.19.fix-1227</version>
   <packaging>jar</packaging>
   <name>take</name>
   <description>Immutable Java Web Framework</description>
